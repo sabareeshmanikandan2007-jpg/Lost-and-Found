@@ -1,0 +1,197 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-primary: #FFE17C;
+  --color-charcoal: #171E19;
+  --color-sage: #B7C6C2;
+  --color-neutral: #F7F7F4;
+  --color-lost: #FF5F57;
+  --color-found: #28C840;
+  
+  --font-display: 'Cabinet Grotesk', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Satoshi', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  @font-face {
+    font-family: 'Cabinet Grotesk';
+    src: url('https://fonts.cdnfonts.com/s/72355/CabinetGrotesk-Variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Satoshi';
+    src: url('https://fonts.cdnfonts.com/s/72356/Satoshi-Variable.woff2') format('woff2');
+    font-weight: 300 900;
+    font-display: swap;
+  }
+
+  body {
+    background-color: var(--color-neutral);
+    color: var(--color-charcoal);
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: bold;
+    letter-spacing: -0.025em;
+    color: var(--color-charcoal);
+  }
+
+  ::selection {
+    background-color: var(--color-charcoal);
+    color: var(--color-primary);
+  }
+}
+
+@layer components {
+  .brutal-border {
+    border: 2px solid #000000;
+  }
+
+  .brutal-shadow {
+    box-shadow: 4px 4px 0px 0px #000000;
+  }
+
+  .brutal-shadow-lg {
+    box-shadow: 8px 8px 0px 0px #000000;
+  }
+
+  .brutal-shadow-xl {
+    box-shadow: 12px 12px 0px 0px #000000;
+  }
+
+  .brutal-card {
+    background-color: #ffffff;
+    border: 2px solid #000000;
+    box-shadow: 4px 4px 0px 0px #000000;
+    border-radius: 0;
+  }
+
+  .brutal-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: bold;
+    font-size: 1rem;
+    padding: 0.75rem 1.5rem;
+    border: 2px solid #000000;
+    box-shadow: 4px 4px 0px 0px #000000;
+    background-color: #ffffff;
+    color: #000000;
+    transition: all 0.15s ease-in-out;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 0;
+    text-transform: uppercase;
+  }
+  
+  .brutal-btn:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px 0px #000000;
+  }
+  
+  .brutal-btn:active {
+    transform: translate(4px, 4px);
+    box-shadow: 0px 0px 0px 0px #000000;
+  }
+
+  .brutal-btn-primary {
+    background-color: var(--color-primary);
+    color: #000000;
+  }
+
+  .brutal-btn-charcoal {
+    background-color: var(--color-charcoal);
+    color: #ffffff;
+  }
+  
+  .brutal-btn-charcoal:hover {
+    box-shadow: 2px 2px 0px 0px #000000;
+    background-color: var(--color-charcoal);
+    color: #ffffff;
+  }
+
+  .brutal-input {
+    width: 100%;
+    background-color: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+    padding: 0.75rem 1rem;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    border-radius: 0;
+    transition: box-shadow 0.15s ease-in-out;
+  }
+
+  .brutal-input:focus {
+    outline: none;
+    box-shadow: 4px 4px 0px 0px #000000;
+  }
+
+  .label-text {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: bold;
+    font-family: var(--font-sans);
+    color: var(--color-charcoal);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    font-family: var(--font-display);
+    font-weight: bold;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    border: 2px solid #000000;
+    border-radius: 9999px;
+    background-color: #ffffff;
+    color: var(--color-charcoal);
+  }
+  
+  .badge-lost {
+    background-color: var(--color-lost);
+    color: #ffffff;
+  }
+  
+  .badge-found {
+    background-color: var(--color-found);
+    color: #000000;
+  }
+
+  .badge-resolved {
+    background-color: var(--color-sage);
+    color: var(--color-charcoal);
+  }
+}
+
+@layer utilities {
+  .float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .float-delayed {
+    animation: float 6s ease-in-out 2s infinite;
+  }
+  .float-slow {
+    animation: float 8s ease-in-out 1s infinite;
+  }
+  
+  @keyframes float {
+    0% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(1deg); }
+    100% { transform: translateY(0px) rotate(0deg); }
+  }
+}
