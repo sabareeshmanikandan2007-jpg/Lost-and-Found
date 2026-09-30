@@ -5,7 +5,7 @@
 
 export const DEMO_ITEMS = [];
 
-const BACKEND_BASE = import.meta.env?.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const BACKEND_BASE = import.meta.env?.VITE_API_URL?.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:5000');
 
 /**
  * Utility: get appropriate image URL for a post.
