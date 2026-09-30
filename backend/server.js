@@ -13,8 +13,13 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 
 // CORS Configuration
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000'];
+if (process.env.CLIENT_URL) {
+  allowedOrigins.push(process.env.CLIENT_URL);
+}
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true, // Allow cookies to be sent
@@ -35,7 +40,7 @@ app.use('/api/posts', postRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'Server is running', timestamp: new Date() });
+  res.json({ success: true, message: 'FINDY API is running' });
 });
 
 // 404 handler for unknown routes
@@ -55,15 +60,21 @@ mongoose
   .then(() => {
     console.log('✅ MongoDB connected successfully');
     console.log(`📦 Database: ${mongoose.connection.name}`);
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 API available at http://localhost:${PORT}/api`);
-      console.log(`📁 Uploads served at http://localhost:${PORT}/uploads`);
-    });
+    
+    // Only listen if not running on Vercel
+    if (!process.env.VERCEL) {
+      app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`🌐 API available at http://localhost:${PORT}/api`);
+        console.log(`📁 Uploads served at http://localhost:${PORT}/uploads`);
+      });
+    }
   })
   .catch((err) => {
     console.error('❌ MongoDB connection failed:', err.message);
-    process.exit(1);
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   });
 
 // Handle unhandled promise rejections
