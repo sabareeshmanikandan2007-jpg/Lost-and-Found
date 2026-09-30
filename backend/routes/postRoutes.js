@@ -13,23 +13,8 @@ const {
   deletePost,
 } = require('../controllers/postController');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
 // Multer storage configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `post-${uniqueSuffix}${ext}`);
-  },
-});
+const storage = multer.memoryStorage();
 
 // File filter — allow only images
 const fileFilter = (req, file, cb) => {

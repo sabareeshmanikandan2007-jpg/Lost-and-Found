@@ -1,21 +1,37 @@
 const Post = require('../models/Post');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('../config/cloudinary');
+const streamifier = require('streamifier');
 
-// Helper to build image URL
-const getImageUrl = (req, filename) => {
-  if (!filename) return null;
-  return `${req.protocol}://${req.get('host')}/uploads/${filename}`;
+// Helper to upload image to Cloudinary using stream
+const uploadImageToCloudinary = (buffer) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: 'findy' },
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      }
+    );
+    streamifier.createReadStream(buffer).pipe(stream);
+  });
 };
 
-// Helper to delete image file
-const deleteImageFile = (filename) => {
-  if (!filename) return;
-  // Handle both full paths and just filenames
-  const fname = path.basename(filename);
-  const filePath = path.join(__dirname, '..', 'uploads', fname);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
+// Helper to delete image from Cloudinary
+const deleteImageFromCloudinary = async (imageUrl) => {
+  if (!imageUrl || !imageUrl.includes('res.cloudinary.com')) return;
+  try {
+    const parts = imageUrl.split('/');
+    const lastPart = parts[parts.length - 1]; // e.g. xjzhq1a0h9o9jz.jpg
+    const folder = parts[parts.length - 2]; // e.g. findy
+    const fileName = lastPart.split('.')[0]; // e.g. xjzhq1a0h9o9jz
+    
+    const publicId = `${folder}/${fileName}`;
+    await cloudinary.uploader.destroy(publicId);
+  } catch (err) {
+    console.error('Error deleting from Cloudinary:', err);
   }
 };
 
@@ -65,10 +81,12 @@ const getPosts = async (req, res, next) => {
       Post.countDocuments(query),
     ]);
 
-    // Attach image URLs
+    // Attach image URLs (support legacy local urls just in case, though they will 404 on Vercel)
     const postsWithUrls = posts.map((post) => ({
       ...post,
-      imageUrl: post.image ? `${req.protocol}://${req.get('host')}/uploads/${path.basename(post.image)}` : null,
+      imageUrl: post.image && post.image.startsWith('http') 
+        ? post.image 
+        : (post.image ? `${req.protocol}://${req.get('host')}/uploads/${post.image}` : null),
     }));
 
     res.json({
@@ -118,7 +136,9 @@ const getPost = async (req, res, next) => {
 
     const postWithUrl = {
       ...post,
-      imageUrl: post.image ? `${req.protocol}://${req.get('host')}/uploads/${path.basename(post.image)}` : null,
+      imageUrl: post.image && post.image.startsWith('http') 
+        ? post.image 
+        : (post.image ? `${req.protocol}://${req.get('host')}/uploads/${post.image}` : null),
     };
 
     res.json({ success: true, post: postWithUrl });
@@ -134,8 +154,19 @@ const getPost = async (req, res, next) => {
 // @route   POST /api/posts
 // @access  Public
 const createPost = async (req, res, next) => {
+  let uploadedImageUrl = null;
   try {
     const { title, description, type, category, location, date, contactName, contactEmail, contactPhone, status } = req.body;
+
+    // Handle image upload to Cloudinary directly in memory stream
+    if (req.file) {
+      try {
+        const result = await uploadImageToCloudinary(req.file.buffer);
+        uploadedImageUrl = result.secure_url;
+      } catch (uploadError) {
+        return res.status(500).json({ success: false, message: 'Image upload failed' });
+      }
+    }
 
     // Build post data
     const postData = {
@@ -150,18 +181,14 @@ const createPost = async (req, res, next) => {
       contactPhone: contactPhone || null,
       status: status || 'Active',
       createdBy: req.user ? req.user._id : null,
+      image: uploadedImageUrl
     };
-
-    // Handle image upload
-    if (req.file) {
-      postData.image = req.file.filename;
-    }
 
     const post = await Post.create(postData);
 
     const postWithUrl = {
       ...post.toObject(),
-      imageUrl: post.image ? `${req.protocol}://${req.get('host')}/uploads/${post.image}` : null,
+      imageUrl: post.image,
     };
 
     res.status(201).json({
@@ -170,9 +197,9 @@ const createPost = async (req, res, next) => {
       post: postWithUrl,
     });
   } catch (error) {
-    // If post creation fails, clean up uploaded file
-    if (req.file) {
-      deleteImageFile(req.file.filename);
+    // If post creation fails, clean up uploaded image if exists
+    if (uploadedImageUrl) {
+      deleteImageFromCloudinary(uploadedImageUrl);
     }
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map((e) => e.message);
@@ -186,21 +213,18 @@ const createPost = async (req, res, next) => {
 // @route   PUT /api/posts/:id
 // @access  Public
 const updatePost = async (req, res, next) => {
+  let uploadedImageUrl = null;
   try {
     const existingPost = await Post.findById(req.params.id);
 
     if (!existingPost) {
-      // Clean up uploaded file if post not found
-      if (req.file) deleteImageFile(req.file.filename);
       return res.status(404).json({ success: false, message: 'Post not found' });
     }
 
     // Ownership check (allow if post has no owner (demo) OR if current user is owner)
     if (existingPost.createdBy && existingPost.createdBy.toString() !== req.user.id) {
-       if (req.file) deleteImageFile(req.file.filename);
        return res.status(403).json({ success: false, message: 'Not authorized to update this item' });
     }
-
 
     const { title, description, type, category, location, date, contactName, contactEmail, contactPhone, status } = req.body;
 
@@ -219,11 +243,18 @@ const updatePost = async (req, res, next) => {
 
     // Handle image update
     if (req.file) {
-      // Delete old image if exists
-      if (existingPost.image) {
-        deleteImageFile(existingPost.image);
+      try {
+        const result = await uploadImageToCloudinary(req.file.buffer);
+        uploadedImageUrl = result.secure_url;
+        updateData.image = uploadedImageUrl;
+        
+        // Mark old image for deletion
+        if (existingPost.image) {
+          deleteImageFromCloudinary(existingPost.image); // Fire and forget deletion
+        }
+      } catch (uploadError) {
+        return res.status(500).json({ success: false, message: 'Image upload failed' });
       }
-      updateData.image = req.file.filename;
     }
 
     // Remove undefined fields
@@ -238,9 +269,9 @@ const updatePost = async (req, res, next) => {
 
     const postWithUrl = {
       ...updatedPost,
-      imageUrl: updatedPost.image
-        ? `${req.protocol}://${req.get('host')}/uploads/${path.basename(updatedPost.image)}`
-        : null,
+      imageUrl: updatedPost.image && updatedPost.image.startsWith('http') 
+        ? updatedPost.image 
+        : (updatedPost.image ? `${req.protocol}://${req.get('host')}/uploads/${updatedPost.image}` : null),
     };
 
     res.json({
@@ -249,7 +280,9 @@ const updatePost = async (req, res, next) => {
       post: postWithUrl,
     });
   } catch (error) {
-    if (req.file) deleteImageFile(req.file.filename);
+    if (uploadedImageUrl) {
+      deleteImageFromCloudinary(uploadedImageUrl);
+    }
     if (error.name === 'CastError') {
       return res.status(400).json({ success: false, message: 'Invalid post ID' });
     }
@@ -283,7 +316,9 @@ const resolvePost = async (req, res, next) => {
 
     const postWithUrl = {
       ...post,
-      imageUrl: post.image ? `${req.protocol}://${req.get('host')}/uploads/${path.basename(post.image)}` : null,
+      imageUrl: post.image && post.image.startsWith('http') 
+        ? post.image 
+        : (post.image ? `${req.protocol}://${req.get('host')}/uploads/${post.image}` : null),
     };
 
     res.json({
@@ -315,9 +350,9 @@ const deletePost = async (req, res, next) => {
        return res.status(403).json({ success: false, message: 'Not authorized to delete this item' });
     }
 
-    // Delete associated image file
+    // Delete associated image from Cloudinary
     if (post.image) {
-      deleteImageFile(post.image);
+      deleteImageFromCloudinary(post.image);
     }
 
     await Post.findByIdAndDelete(req.params.id);

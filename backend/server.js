@@ -30,9 +30,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Serve uploaded images statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
@@ -66,7 +63,6 @@ mongoose
       app.listen(PORT, () => {
         console.log(`🚀 Server running on port ${PORT}`);
         console.log(`🌐 API available at http://localhost:${PORT}/api`);
-        console.log(`📁 Uploads served at http://localhost:${PORT}/uploads`);
       });
     }
   })
